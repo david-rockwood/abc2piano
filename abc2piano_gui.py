@@ -15,14 +15,13 @@ import tempfile
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
 
+import subprocess
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 import mido
 import ffmpeg
 import fluidsynth
-from music21 import converter
-
 
 APP_NAME = "abc2piano"
 SF2_FILENAME = "YDP-GrandPiano-20160804.sf2"
@@ -85,11 +84,38 @@ def get_default_soundfont_path() -> Path:
 
 def abc_to_midi(abc_path: Path, midi_path: Path) -> None:
     """
-    Convert ABC file to MIDI using music21.
-    """
-    score = converter.parse(str(abc_path), format="abc")
-    score.write("midi", fp=str(midi_path))
+    Convert ABC file to MIDI using the external `abc2midi` tool (from abcmidi).
 
+    Requires `abc2midi` to be installed and on PATH.
+    On Debian/Ubuntu: sudo apt-get install abcmidi
+    """
+    if not abc_path.exists():
+        raise FileNotFoundError(f"ABC file not found: {abc_path}")
+
+    try:
+        # abc2midi infile.abc -o outfile.mid
+        result = subprocess.run(
+            ["abc2midi", str(abc_path), "-o", str(midi_path)],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        # If you ever want to see diagnostics, result.stdout has abc2midi’s text.
+        # print(result.stdout)
+    except FileNotFoundError:
+        raise RuntimeError(
+            "abc2midi (from the abcmidi package) is not installed or not on PATH.\n"
+            "On Debian/Ubuntu, install it with:\n\n"
+            "    sudo apt-get install abcmidi\n"
+        )
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(
+            "abc2midi failed while converting ABC to MIDI.\n\n"
+            f"Command: {' '.join(e.cmd)}\n"
+            f"Exit code: {e.returncode}\n"
+            f"Output:\n{e.stdout}"
+        )
 
 def midi_to_wav(midi_path: Path, wav_path: Path, soundfont_path: Path) -> None:
     """

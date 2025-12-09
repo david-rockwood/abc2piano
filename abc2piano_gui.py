@@ -137,13 +137,13 @@ def midi_to_wav(midi_path: Path, wav_path: Path, soundfont_path: Path) -> None:
 
     cmd = [
         "fluidsynth",
-        "-ni",
+        "-F", str(wav_path),
+        "-r", "44100",
+        "-g", "0.8",          # a bit louder than the default 0.2
+        "-i", "-n",           # no interactive shell, no MIDI input device
+        "-T", "wav",          # ensure the file format really is WAV
         str(soundfont_path),
         str(midi_path),
-        "-F",
-        str(wav_path),
-        "-r",
-        "44100",
     ]
 
     try:
@@ -154,7 +154,7 @@ def midi_to_wav(midi_path: Path, wav_path: Path, soundfont_path: Path) -> None:
             stderr=subprocess.STDOUT,
             text=True,
         )
-        # If you want debugging info:
+        # Uncomment if you want to see what fluidsynth says:
         # print(result.stdout)
     except FileNotFoundError:
         raise RuntimeError(

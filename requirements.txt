@@ -1,4 +1,2 @@
-music21
 mido
-pyfluidsynth
 ffmpeg-python

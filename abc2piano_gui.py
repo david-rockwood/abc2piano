@@ -29,15 +29,68 @@ SF2_FILENAME = "YDP-GrandPiano-20160804.sf2"
 #   key: human label shown in the combobox
 #   value: None -> no reverb
 #           ("filter_name", [arg1, arg2, ...]) -> ffmpeg audio filter
-REVERB_PRESETS: Dict[str, Optional[Tuple[str, list[float | int | str]]]] = {
-    "None": None,
-    "Small room (aecho)": ("aecho", [0.8, 0.9, 60, 0.4]),
-    "Large hall (aecho)": ("aecho", [0.8, 0.88, 1200, 0.3]),
-}
+# Reverb presets:
+#   key: human label shown in the combobox
+#   value:
+#       None -> no reverb
+#       dict with:
+#           "type": "afir"
+#           "impulse": filename under resources/impulses/
+#           "options": dict of afir options (dry/wet mix, etc.)
+ReverbSpec = Dict[str, Any]
 
-# Output format presets:
-#   key: human label
-#   value: dict with ffmpeg settings + default extension
+REVERB_PRESETS: Dict[str, Optional[ReverbSpec]] = {
+    "None": None,
+
+    "Dry studio": {
+        "type": "afir",
+        "impulse": "IRx125_01A_dry-studio.wav",
+        "options": {
+            "dry": 10,
+            "wet": 6,
+        },
+    },
+    "Small room": {
+        "type": "afir",
+        "impulse": "IRx250_01A_small-room.wav",
+        "options": {
+            "dry": 10,
+            "wet": 8,
+        },
+    },
+    "Concert hall": {
+        "type": "afir",
+        "impulse": "IRx500_01A_concert-hall.wav",
+        "options": {
+            "dry": 8,
+            "wet": 12,
+        },
+    },
+    "Wide hall": {
+        "type": "afir",
+        "impulse": "IRx500_02A_wide-hall.wav",
+        "options": {
+            "dry": 8,
+            "wet": 12,
+        },
+    },
+    "Grand hall": {
+        "type": "afir",
+        "impulse": "IRx1000_01A_grand-hall.wav",
+        "options": {
+            "dry": 6,
+            "wet": 14,
+        },
+    },
+    "Cinematic hall": {
+        "type": "afir",
+        "impulse": "IRx1000_02A_cinematic-hall.wav",
+        "options": {
+            "dry": 6,
+            "wet": 14,
+        },
+    },
+}
 OUTPUT_PRESETS: Dict[str, Dict[str, Any]] = {
     "WAV (44.1 kHz)": {
         "ext": ".wav",
@@ -75,6 +128,13 @@ def get_resource_dir() -> Path:
 
 def get_default_soundfont_path() -> Path:
     return get_resource_dir() / SF2_FILENAME
+
+def get_impulse_response_path(filename: str) -> Path:
+    """
+    Return the full path to an impulse response file stored under
+    resources/impulses/.
+    """
+    return get_resource_dir() / "impulses" / filename
 
 
 # ---------------------------------------------------------------------------
@@ -177,8 +237,12 @@ def process_with_ffmpeg(
     output_preset_name: str,
 ) -> None:
     """
-    Take a dry WAV file and produce final audio with optional reverb
-    and encoding (WAV/MP3/Opus) via ffmpeg.
+    Take a dry WAV file and produce final audio with optional convolution
+    reverb (ffmpeg afir) and encoding (WAV/MP3/Opus).
+
+    Reverb presets:
+      - None               -> no reverb
+      - AFIR-based presets -> use impulse responses in resources/impulses/
     """
     if not dry_wav.exists():
         raise FileNotFoundError(f"Dry WAV not found: {dry_wav}")
@@ -190,25 +254,53 @@ def process_with_ffmpeg(
     codec = preset["codec"]
     bitrate = preset["bitrate"]
 
-    stream = ffmpeg.input(str(dry_wav))
-
-    # Reverb
     reverb_spec = REVERB_PRESETS.get(reverb_preset_name)
-    if reverb_spec is not None:
-        filter_name, args = reverb_spec
-        stream = stream.filter_(filter_name, *args)
 
+    # --- Build the audio processing graph ---------------------------------
+    if reverb_spec is None:
+        # No reverb at all
+        audio_stream = ffmpeg.input(str(dry_wav))
+
+    else:
+        rtype = reverb_spec.get("type")
+
+        if rtype != "afir":
+            raise ValueError(f"Unknown reverb preset type: {rtype!r}")
+
+        impulse_name = reverb_spec.get("impulse")
+        if not impulse_name:
+            raise ValueError(f"AFIR preset '{reverb_preset_name}' is missing 'impulse'")
+
+        ir_path = get_impulse_response_path(impulse_name)
+        if not ir_path.exists():
+            raise FileNotFoundError(
+                f"Impulse response not found for preset '{reverb_preset_name}': {ir_path}"
+            )
+
+        dry_stream = ffmpeg.input(str(dry_wav))
+        ir_stream = ffmpeg.input(str(ir_path))
+
+        afir_options = reverb_spec.get("options", {})
+
+        # Equivalent to:
+        #   ffmpeg -i dry.wav -i ir.wav -filter_complex "[0:a][1:a]afir=..." out.wav
+        audio_stream = ffmpeg.filter(
+            [dry_stream, ir_stream],
+            "afir",
+            **afir_options,
+        )
+
+    # --- Output encoding ---------------------------------------------------
     kwargs: Dict[str, Any] = {"acodec": codec}
     if bitrate is not None:
         kwargs["audio_bitrate"] = bitrate
 
     (
-        stream
+        audio_stream
         .output(str(out_path), **kwargs)
         .overwrite_output()
         .run()
     )
-
 
 def export_abc_to_audio(
     abc_path: Path,

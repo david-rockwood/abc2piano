@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Envs
+.venv/
+venv/
+
+# Build artifacts
+build/
+dist/
+*.spec
+
+# Local resources (do not track big SF2s)
+resources/*.sf2

@@ -55,7 +55,7 @@ REVERB_PRESETS: Dict[str, Optional[ReverbSpec]] = {
     "Concert hall": {
         "type": "afir",
         "impulse": "IRx500_01A_concert-hall.wav",
-        "options": {"dry": 0.9, "wet": 1.1},
+        "options": {"dry": 2.0, "wet": 1.0},
     },
     "Wide hall": {
         "type": "afir",

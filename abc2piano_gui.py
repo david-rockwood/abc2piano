@@ -266,10 +266,11 @@ def process_with_ffmpeg(
 
         # Equivalent to:
         #   ffmpeg -i dry.wav -i ir.wav -filter_complex "[0:a][1:a]afir=..." out.wav
-        audio_stream = ffmpeg.filter(
-            [dry_stream, ir_stream],
-            "afir",
-            **afir_options,
+        audio_stream = (
+            ffmpeg
+            .filter([dry_stream, ir_stream], "afir", **afir_options)
+            .filter_("volume", 3.0)
+            .filter_("alimiter")
         )
 
     # --- Output encoding ---------------------------------------------------

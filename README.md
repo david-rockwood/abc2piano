@@ -1,7 +1,5 @@
 # abc2piano
 
-Don't run this yet, I'm still setting up the repo. Doesn't work yet.
-
 Simple desktop app that converts ABC notation into piano audio.
 
 - Input: .abc file (ABC notation)

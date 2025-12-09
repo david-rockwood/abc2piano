@@ -332,7 +332,7 @@ class App:
         self.root.title("ABC → Piano Audio")
 
         self.abc_path_var = tk.StringVar()
-        self.reverb_var = tk.StringVar(value="None")
+        self.reverb_var = tk.StringVar(value="Concert hall")
         self.output_preset_var = tk.StringVar(value="WAV (44.1 kHz)")
 
         self.status_var = tk.StringVar(value="Ready.")

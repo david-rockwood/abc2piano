@@ -45,50 +45,32 @@ REVERB_PRESETS: Dict[str, Optional[ReverbSpec]] = {
     "Dry studio": {
         "type": "afir",
         "impulse": "IRx125_01A_dry-studio.wav",
-        "options": {
-            "dry": 10,
-            "wet": 6,
-        },
+        "options": {"dry": 1.2, "wet": 0.6},
     },
     "Small room": {
         "type": "afir",
         "impulse": "IRx250_01A_small-room.wav",
-        "options": {
-            "dry": 10,
-            "wet": 8,
-        },
+        "options": {"dry": 1.0, "wet": 0.9},
     },
     "Concert hall": {
         "type": "afir",
         "impulse": "IRx500_01A_concert-hall.wav",
-        "options": {
-            "dry": 8,
-            "wet": 12,
-        },
+        "options": {"dry": 0.9, "wet": 1.1},
     },
     "Wide hall": {
         "type": "afir",
         "impulse": "IRx500_02A_wide-hall.wav",
-        "options": {
-            "dry": 8,
-            "wet": 12,
-        },
+        "options": {"dry": 0.9, "wet": 1.2},
     },
     "Grand hall": {
         "type": "afir",
         "impulse": "IRx1000_01A_grand-hall.wav",
-        "options": {
-            "dry": 6,
-            "wet": 14,
-        },
+        "options": {"dry": 0.8, "wet": 1.3},
     },
     "Cinematic hall": {
         "type": "afir",
         "impulse": "IRx1000_02A_cinematic-hall.wav",
-        "options": {
-            "dry": 6,
-            "wet": 14,
-        },
+        "options": {"dry": 0.7, "wet": 1.4},
     },
 }
 OUTPUT_PRESETS: Dict[str, Dict[str, Any]] = {

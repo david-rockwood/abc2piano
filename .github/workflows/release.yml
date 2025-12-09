@@ -21,13 +21,14 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install system deps (fluidsynth, ffmpeg)
+      - name: Install system deps (fluidsynth, ffmpeg, abcmidi)
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             fluidsynth \
             libfluidsynth3 \
-            ffmpeg
+            ffmpeg \
+            abcmidi
 
       - name: Install Python deps
         run: |

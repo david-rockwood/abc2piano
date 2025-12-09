@@ -1,0 +1,55 @@
+name: Manual Build (PyInstaller)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system deps (fluidsynth, ffmpeg, abcmidi)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            fluidsynth \
+            libfluidsynth3 \
+            ffmpeg \
+            abcmidi
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Fetch YDP Grand Piano soundfont
+        run: |
+          mkdir -p resources
+          curl -L \
+            -o resources/YDP-GrandPiano-20160804.sf2 \
+            "https://github.com/david-rockwood/abc2piano/releases/download/v0.0.1-assets/YDP-GrandPiano-20160804.sf2"
+
+      - name: Build binary with PyInstaller
+        run: |
+          pyinstaller --noconfirm --onefile \
+            --name abc2piano \
+            --add-data "resources/YDP-GrandPiano-20160804.sf2:resources" \
+            abc2piano_gui.py
+
+      - name: Show dist/
+        run: ls -lh dist/
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: abc2piano-linux
+          path: dist/abc2piano

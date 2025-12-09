@@ -329,7 +329,7 @@ def export_abc_to_audio(
 class App:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
-        self.root.title("ABC → Piano Audio")
+        self.root.title("ABC2piano v0.0.3")
 
         self.abc_path_var = tk.StringVar()
         self.reverb_var = tk.StringVar(value="Concert hall")

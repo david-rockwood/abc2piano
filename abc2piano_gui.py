@@ -21,7 +21,6 @@ from tkinter import ttk, filedialog, messagebox
 
 import mido
 import ffmpeg
-import fluidsynth
 
 APP_NAME = "abc2piano"
 SF2_FILENAME = "YDP-GrandPiano-20160804.sf2"
@@ -119,51 +118,57 @@ def abc_to_midi(abc_path: Path, midi_path: Path) -> None:
 
 def midi_to_wav(midi_path: Path, wav_path: Path, soundfont_path: Path) -> None:
     """
-    Render a MIDI file to a dry WAV file using FluidSynth via pyfluidsynth.
+    Render a MIDI file to a dry WAV file using the external `fluidsynth` CLI.
 
     - Uses 44100 Hz sample rate.
-    - Uses the first preset of the given soundfont (channel 0).
+    - Uses the given SF2 SoundFont.
+    - Requires `fluidsynth` to be installed and on PATH.
+      On Debian/Ubuntu: sudo apt-get install fluidsynth
     """
+    if not midi_path.exists():
+        raise FileNotFoundError(f"MIDI file not found: {midi_path}")
+
     if not soundfont_path.exists():
         raise FileNotFoundError(
             f"SoundFont not found: {soundfont_path}\n\n"
             "Make sure the YDP Grand Piano SF2 has been downloaded "
-            "into the resources/ directory."
+            "into the resources/ directory or bundled with the app."
         )
 
-    settings = fluidsynth.Settings()
-    settings["synth.sample-rate"] = 44100.0
+    cmd = [
+        "fluidsynth",
+        "-ni",
+        str(soundfont_path),
+        str(midi_path),
+        "-F",
+        str(wav_path),
+        "-r",
+        "44100",
+    ]
 
-    fs = fluidsynth.Synth(settings=settings)
-    # Offline rendering: FluidSynth writes directly to wav_path
-    fs.start(driver="file", filename=str(wav_path))
-
-    sfid = fs.sfload(str(soundfont_path))
-    # Channel 0, bank 0, program 0 (OK for a piano-only SF2)
-    fs.program_select(0, sfid, 0, 0)
-
-    mid = mido.MidiFile(str(midi_path))
-
-    # mido.MidiFile.play() yields messages with msg.time in seconds
-    for msg in mid.play():
-        if msg.time > 0:
-            fs.sleep(msg.time)
-
-        if msg.is_meta:
-            continue
-
-        if msg.type == "note_on":
-            fs.noteon(msg.channel, msg.note, msg.velocity)
-        elif msg.type == "note_off":
-            fs.noteoff(msg.channel, msg.note)
-        elif msg.type == "control_change":
-            fs.cc(msg.channel, msg.control, msg.value)
-        elif msg.type == "program_change":
-            # For a piano-only SF2, this could be ignored or respected:
-            fs.program_select(msg.channel, sfid, 0, msg.program)
-
-    fs.delete()
-
+    try:
+        result = subprocess.run(
+            cmd,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        # If you want debugging info:
+        # print(result.stdout)
+    except FileNotFoundError:
+        raise RuntimeError(
+            "fluidsynth is not installed or not on PATH.\n"
+            "On Debian/Ubuntu, install it with:\n\n"
+            "    sudo apt-get install fluidsynth\n"
+        )
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(
+            "fluidsynth failed while converting MIDI to WAV.\n\n"
+            f"Command: {' '.join(e.cmd)}\n"
+            f"Exit code: {e.returncode}\n"
+            f"Output:\n{e.stdout}"
+        )
 
 def process_with_ffmpeg(
     dry_wav: Path,

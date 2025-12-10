@@ -25,18 +25,6 @@ import ffmpeg
 APP_NAME = "abc2piano"
 SF2_FILENAME = "YDP-GrandPiano-20160804.sf2"
 
-# Reverb presets:
-#   key: human label shown in the combobox
-#   value: None -> no reverb
-#           ("filter_name", [arg1, arg2, ...]) -> ffmpeg audio filter
-# Reverb presets:
-#   key: human label shown in the combobox
-#   value:
-#       None -> no reverb
-#       dict with:
-#           "type": "afir"
-#           "impulse": filename under resources/impulses/
-#           "options": dict of afir options (dry/wet mix, etc.)
 ReverbSpec = Dict[str, Any]
 
 REVERB_PRESETS: Dict[str, Optional[ReverbSpec]] = {
@@ -45,34 +33,40 @@ REVERB_PRESETS: Dict[str, Optional[ReverbSpec]] = {
     "Dry studio": {
         "type": "afir",
         "impulse": "IRx125_01A_dry-studio.wav",
-        "options": {"dry": 1.2, "wet": 0.6},
     },
     "Small room": {
         "type": "afir",
         "impulse": "IRx250_01A_small-room.wav",
-        "options": {"dry": 1.0, "wet": 0.9},
     },
     "Concert hall": {
         "type": "afir",
         "impulse": "IRx500_01A_concert-hall.wav",
-        "options": {"dry": 4.0, "wet": 1.0},
     },
     "Wide hall": {
         "type": "afir",
         "impulse": "IRx500_02A_wide-hall.wav",
-        "options": {"dry": 0.9, "wet": 1.2},
     },
     "Grand hall": {
         "type": "afir",
         "impulse": "IRx1000_01A_grand-hall.wav",
-        "options": {"dry": 0.8, "wet": 1.3},
     },
     "Cinematic hall": {
         "type": "afir",
         "impulse": "IRx1000_02A_cinematic-hall.wav",
-        "options": {"dry": 0.7, "wet": 1.4},
     },
 }
+
+# ---------------------------------------------------------------------------
+# Global reverb tuning (baked defaults)
+# ---------------------------------------------------------------------------
+
+AFIR_DRY_GAIN: float = 1.0       # AFIR input gain
+AFIR_WET_GAIN: float = 1.0       # AFIR output gain
+MIX_DRY_WEIGHT: float = 1.0      # parallel dry branch weight
+MIX_WET_WEIGHT: float = 1.0      # parallel wet branch weight
+POST_VOLUME_GAIN: float = 2.8    # makeup gain after mix
+USE_LIMITER: bool = True         # soft limiter on final output
+
 OUTPUT_PRESETS: Dict[str, Dict[str, Any]] = {
     "WAV (44.1 kHz)": {
         "ext": ".wav",
@@ -217,7 +211,6 @@ def process_with_ffmpeg(
     out_path: Path,
     reverb_preset_name: str,
     output_preset_name: str,
-    advanced_reverb: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
     Take a dry WAV file and produce final audio with optional convolution
@@ -229,13 +222,10 @@ def process_with_ffmpeg(
                   └─► direct (dry branch)
           then AMIX, volume, optional limiter.
 
-    advanced_reverb (if provided) is a dict with keys:
-        - dry: float        (AFIR input gain, 0–10)
-        - wet: float        (AFIR output gain, 0–10)
-        - post_volume: float (overall gain after mix)
-        - mix_dry: float    (weight for dry branch in amix)
-        - mix_wet: float    (weight for wet branch in amix)
-        - use_limiter: bool (whether to insert alimiter at end)
+    The tuning is controlled by the global constants:
+        AFIR_DRY_GAIN, AFIR_WET_GAIN,
+        MIX_DRY_WEIGHT, MIX_WET_WEIGHT,
+        POST_VOLUME_GAIN, USE_LIMITER.
     """
     if not dry_wav.exists():
         raise FileNotFoundError(f"Dry WAV not found: {dry_wav}")
@@ -254,17 +244,6 @@ def process_with_ffmpeg(
         audio_stream = ffmpeg.input(str(dry_wav)).audio
 
     else:
-        # Defaults if advanced_reverb is not supplied
-        if advanced_reverb is None:
-            advanced_reverb = {}
-
-        dry_gain = float(advanced_reverb.get("dry", 4.0))
-        wet_gain = float(advanced_reverb.get("wet", 1.0))
-        post_volume = float(advanced_reverb.get("post_volume", 3.0))
-        mix_dry = float(advanced_reverb.get("mix_dry", 1.0))
-        mix_wet = float(advanced_reverb.get("mix_wet", 1.0))
-        use_limiter = bool(advanced_reverb.get("use_limiter", True))
-
         rtype = reverb_spec.get("type")
         if rtype != "afir":
             raise ValueError(f"Unknown reverb preset type: {rtype!r}")
@@ -284,7 +263,7 @@ def process_with_ffmpeg(
         # Inputs
         base_in = ffmpeg.input(str(dry_wav)).audio
         ir_in = ffmpeg.input(str(ir_path)).audio
-        
+
         # Split dry input into two branches:
         #   - dry_for_conv -> AFIR (wet)
         #   - dry_for_mix  -> direct dry path
@@ -292,27 +271,25 @@ def process_with_ffmpeg(
         dry_for_conv = split[0]
         dry_for_mix = split[1]
 
-
-        # Build AFIR options (clamp to valid [0, 10] range just in case)
+        # Build AFIR options (clamp to valid [0, 10] range)
         afir_options: Dict[str, Any] = {
-            "dry": max(0.0, min(10.0, dry_gain)),
-            "wet": max(0.0, min(10.0, wet_gain)),
+            "dry": max(0.0, min(10.0, AFIR_DRY_GAIN)),
+            "wet": max(0.0, min(10.0, AFIR_WET_GAIN)),
         }
 
         wet = ffmpeg.filter([dry_for_conv, ir_in], "afir", **afir_options)
 
         # Mix original dry branch with wet branch
-        # 'amix' with weights = "mix_dry mix_wet"
         mixed = ffmpeg.filter(
             [dry_for_mix, wet],
             "amix",
             inputs=2,
-            weights=f"{mix_dry} {mix_wet}",
+            weights=f"{MIX_DRY_WEIGHT} {MIX_WET_WEIGHT}",
         )
 
         # Apply overall volume and optional soft limiter
-        audio_stream = mixed.filter_("volume", float(post_volume))
-        if use_limiter:
+        audio_stream = mixed.filter_("volume", POST_VOLUME_GAIN)
+        if USE_LIMITER:
             audio_stream = audio_stream.filter_("alimiter")
 
     # --- Output encoding ---------------------------------------------------
@@ -333,7 +310,6 @@ def export_abc_to_audio(
     reverb_preset_name: str,
     output_preset_name: str,
     soundfont_path: Path,
-    advanced_reverb: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
     High-level pipeline: ABC file -> temp MIDI -> temp dry WAV -> final audio.
@@ -345,13 +321,7 @@ def export_abc_to_audio(
 
         abc_to_midi(abc_path, midi_path)
         midi_to_wav(midi_path, dry_wav, soundfont_path)
-        process_with_ffmpeg(
-            dry_wav,
-            out_path,
-            reverb_preset_name,
-            output_preset_name,
-            advanced_reverb=advanced_reverb,
-        )
+        process_with_ffmpeg(dry_wav, out_path, reverb_preset_name, output_preset_name)
         
 
 # ---------------------------------------------------------------------------
@@ -370,17 +340,7 @@ class App:
         self.status_var = tk.StringVar(value="Ready.")
         self.export_button: ttk.Button | None = None
 
-        # Advanced reverb tuning (secret) ------------------------------
-        self.adv_dry = tk.DoubleVar(value=4.0)
-        self.adv_wet = tk.DoubleVar(value=1.0)
-        self.adv_post_volume = tk.DoubleVar(value=3.0)
-        self.adv_mix_dry = tk.DoubleVar(value=1.0)
-        self.adv_mix_wet = tk.DoubleVar(value=1.0)
-        self.adv_use_limiter = tk.BooleanVar(value=True)
-
         self._build_ui()
-
-        self.root.bind("<Control-Shift-A>", self.on_advanced_reverb)  # secret mode
 
     # --- UI construction ---------------------------------------------------
 
@@ -433,69 +393,6 @@ class App:
         status_label.grid(row=1, column=0, sticky="we")
 
     # --- UI actions --------------------------------------------------------
-    def on_advanced_reverb(self, event: tk.Event | None = None) -> None:
-        """
-        Secret advanced reverb tuning dialog (Ctrl+Shift+A).
-
-        Lets you tweak:
-            - AFIR dry/wet
-            - post-volume
-            - dry/wet mix
-            - limiter on/off
-        """
-        dialog = tk.Toplevel(self.root)
-        dialog.title("Advanced Reverb Tuning")
-        dialog.transient(self.root)
-        dialog.grab_set()
-
-        frame = ttk.Frame(dialog, padding=10)
-        frame.grid(row=0, column=0, sticky="nsew")
-        dialog.columnconfigure(0, weight=1)
-        dialog.rowconfigure(0, weight=1)
-
-        # Helper to build a row with label + entry
-        def add_row(row: int, label: str, var: tk.Variable) -> None:
-            ttk.Label(frame, text=label).grid(row=row, column=0, sticky="w", pady=2)
-            entry = ttk.Entry(frame, textvariable=var, width=10)
-            entry.grid(row=row, column=1, sticky="w", padx=(5, 0), pady=2)
-
-        add_row(0, "AFIR dry (0–10):", self.adv_dry)
-        add_row(1, "AFIR wet (0–10):", self.adv_wet)
-        add_row(2, "Post volume:", self.adv_post_volume)
-        add_row(3, "Mix dry weight:", self.adv_mix_dry)
-        add_row(4, "Mix wet weight:", self.adv_mix_wet)
-
-        limiter_check = ttk.Checkbutton(
-            frame,
-            text="Enable soft limiter (alimiter)",
-            variable=self.adv_use_limiter,
-        )
-        limiter_check.grid(row=5, column=0, columnspan=2, sticky="w", pady=(8, 4))
-
-        # Buttons
-        btn_frame = ttk.Frame(frame)
-        btn_frame.grid(row=6, column=0, columnspan=2, pady=(10, 0), sticky="e")
-
-        def on_ok() -> None:
-            # Just close; values are already in the tk.*Var objects
-            dialog.destroy()
-
-        def on_reset() -> None:
-            # Reset to some sensible defaults
-            self.adv_dry.set(4.0)
-            self.adv_wet.set(1.0)
-            self.adv_post_volume.set(3.0)
-            self.adv_mix_dry.set(1.0)
-            self.adv_mix_wet.set(1.0)
-            self.adv_use_limiter.set(True)
-
-        ttk.Button(btn_frame, text="Reset", command=on_reset).grid(
-            row=0, column=0, padx=(0, 5)
-        )
-        ttk.Button(btn_frame, text="Close", command=on_ok).grid(row=0, column=1)
-
-        dialog.bind("<Escape>", lambda e: dialog.destroy())
-
     def on_open(self) -> None:
         path = filedialog.askopenfilename(
             title="Select ABC file",
@@ -550,16 +447,6 @@ class App:
         self.status_var.set("Rendering… this may take a moment.")
         self.root.update_idletasks()
 
-        # Collect advanced reverb tuning settings
-        advanced_reverb = {
-            "dry": self.adv_dry.get(),
-            "wet": self.adv_wet.get(),
-            "post_volume": self.adv_post_volume.get(),
-            "mix_dry": self.adv_mix_dry.get(),
-            "mix_wet": self.adv_mix_wet.get(),
-            "use_limiter": self.adv_use_limiter.get(),
-        }
-
         try:
             export_abc_to_audio(
                 abc_path=abc_path,
@@ -567,7 +454,6 @@ class App:
                 reverb_preset_name=self.reverb_var.get(),
                 output_preset_name=output_preset_name,
                 soundfont_path=soundfont_path,
-                advanced_reverb=advanced_reverb,
             )
         except Exception as e:
             messagebox.showerror("Error", f"Failed to export audio:\n\n{e}")

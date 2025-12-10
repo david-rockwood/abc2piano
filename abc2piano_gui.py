@@ -284,11 +284,14 @@ def process_with_ffmpeg(
         # Inputs
         base_in = ffmpeg.input(str(dry_wav)).audio
         ir_in = ffmpeg.input(str(ir_path)).audio
-
+        
         # Split dry input into two branches:
         #   - dry_for_conv -> AFIR (wet)
         #   - dry_for_mix  -> direct dry path
-        dry_for_conv, dry_for_mix = base_in.filter_("asplit", 2)
+        split = base_in.filter_multi_output("asplit", 2)
+        dry_for_conv = split[0]
+        dry_for_mix = split[1]
+
 
         # Build AFIR options (clamp to valid [0, 10] range just in case)
         afir_options: Dict[str, Any] = {

@@ -10,6 +10,7 @@ Pipeline:
 from __future__ import annotations
 
 import os
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -68,6 +69,12 @@ REVERB_PRESETS: Dict[str, Optional[ReverbSpec]] = {
         "type": "afir",
         "impulse": "IRx1000_02A_cinematic-hall.wav",
     },
+}
+
+REQUIRED_EXTERNAL_TOOLS = {
+    "abc2midi": "abc2midi (from the abcmidi package)",
+    "ffmpeg": "ffmpeg",
+    "fluidsynth": "fluidsynth",
 }
 
 # ---------------------------------------------------------------------------
@@ -363,6 +370,36 @@ def get_impulse_response_path(filename: str) -> Path:
     return get_resource_dir() / "impulses" / filename
 
 
+def get_missing_external_tools() -> list[str]:
+    """Return a list of required external tools that are not on PATH."""
+
+    return [tool for tool in REQUIRED_EXTERNAL_TOOLS if shutil.which(tool) is None]
+
+
+def ensure_external_tools_available() -> None:
+    """
+    Ensure all required external command-line tools are available on PATH.
+
+    Raises a RuntimeError with an informative message listing the missing
+    tools and pointing users to install them if any are absent.
+    """
+
+    missing = get_missing_external_tools()
+    if not missing:
+        return
+
+    missing_lines = [
+        f"  - {tool}: {REQUIRED_EXTERNAL_TOOLS[tool]}" for tool in missing
+    ]
+    details = "\n".join(missing_lines)
+
+    raise RuntimeError(
+        "Missing required external dependencies (see README.md):\n\n"
+        f"{details}\n\n"
+        "Please install them and ensure they are available on your PATH."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Audio pipeline helpers
 # ---------------------------------------------------------------------------
@@ -597,6 +634,9 @@ def export_abc_to_audio(
     """
     High-level pipeline: ABC file -> temp MIDI -> temp dry WAV -> final audio.
     """
+
+    ensure_external_tools_available()
+
     with tempfile.TemporaryDirectory() as tmpdir_str:
         tmpdir = Path(tmpdir_str)
         midi_path = tmpdir / "temp.mid"

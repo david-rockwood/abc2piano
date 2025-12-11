@@ -48,6 +48,9 @@ jobs:
           pyinstaller --noconfirm --onefile \
             --name abc2piano \
             --add-data "resources/YDP-GrandPiano-20160804.sf2:resources" \
+            --add-data "resources/abc2piano.png:resources" \
+            --add-data "resources/abc2piano.ico:resources" \
+            --add-data "resources/abc2piano.svg:resources" \
             --add-data "resources/impulses:resources/impulses" \
             abc2piano_gui.py
 

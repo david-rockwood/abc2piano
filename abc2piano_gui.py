@@ -13,11 +13,12 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+import fnmatch
 from typing import Dict, Any, Optional
 
 import subprocess
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, messagebox
 
 import mido
 import ffmpeg
@@ -134,6 +135,210 @@ def set_window_icon(root: tk.Tk) -> None:
             root.iconbitmap(default=str(ico_path))
         except tk.TclError:
             pass
+
+
+class FileBrowserDialog(tk.Toplevel):
+    def __init__(
+        self,
+        parent: tk.Tk,
+        title: str,
+        mode: str,
+        filetypes: list[tuple[str, str]] | None = None,
+        defaultextension: str | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.parent = parent
+        self.mode = mode
+        self.filetypes = filetypes or []
+        self.defaultextension = defaultextension
+        self.result: Path | None = None
+        self.working_dir = Path.cwd()
+
+        self.title(title)
+        self.transient(parent)
+        self.grab_set()
+
+        self.filename_var = tk.StringVar()
+        self.show_hidden_var = tk.BooleanVar(value=False)
+
+        self._build_ui()
+        self._refresh_file_list()
+
+        self.protocol("WM_DELETE_WINDOW", self._on_cancel)
+        self.wait_window(self)
+
+    # --- UI construction ---------------------------------------------------
+    def _build_ui(self) -> None:
+        container = ttk.Frame(self, padding=10)
+        container.grid(row=0, column=0, sticky="nsew")
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+        container.columnconfigure(0, weight=1)
+
+        ttk.Label(container, text="Working directory:").grid(row=0, column=0, sticky="w")
+        self.cwd_label = ttk.Label(container, text=str(self.working_dir), anchor="w")
+        self.cwd_label.grid(row=1, column=0, sticky="we", pady=(0, 5))
+
+        tree_frame = ttk.Frame(container)
+        tree_frame.grid(row=2, column=0, sticky="nsew")
+        container.rowconfigure(2, weight=1)
+        tree_frame.columnconfigure(0, weight=1)
+
+        self.tree = ttk.Treeview(tree_frame, show="tree", selectmode="browse")
+        vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=vsb.set)
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+        tree_frame.rowconfigure(0, weight=1)
+
+        self.tree.bind("<<TreeviewSelect>>", self._on_select)
+        self.tree.bind("<Double-1>", self._on_double_click)
+        # Support scrolling with mouse wheel and middle button events on X11
+        self.tree.bind("<MouseWheel>", self._on_mousewheel)
+        self.tree.bind("<Button-4>", self._on_mousewheel)
+        self.tree.bind("<Button-5>", self._on_mousewheel)
+
+        entry_frame = ttk.Frame(container)
+        entry_frame.grid(row=3, column=0, sticky="we", pady=(8, 4))
+        entry_frame.columnconfigure(1, weight=1)
+        ttk.Label(entry_frame, text="File name:").grid(row=0, column=0, padx=(0, 5))
+        entry = ttk.Entry(entry_frame, textvariable=self.filename_var)
+        entry.grid(row=0, column=1, sticky="we")
+        entry.bind("<Return>", lambda event: self._on_confirm())
+
+        options_frame = ttk.Frame(container)
+        options_frame.grid(row=4, column=0, sticky="we", pady=(0, 8))
+        ttk.Checkbutton(
+            options_frame,
+            text="Show hidden files",
+            variable=self.show_hidden_var,
+            command=self._refresh_file_list,
+        ).grid(row=0, column=0, sticky="w")
+
+        button_frame = ttk.Frame(container)
+        button_frame.grid(row=5, column=0, sticky="e")
+        ttk.Button(button_frame, text="Cancel", command=self._on_cancel).grid(row=0, column=0, padx=(0, 5))
+        action_label = "Open" if self.mode == "open" else "Save"
+        ttk.Button(button_frame, text=action_label, command=self._on_confirm).grid(row=0, column=1)
+
+    # --- Event handlers ----------------------------------------------------
+    def _on_select(self, event: tk.Event[tk.Treeview]) -> None:
+        selection = self.tree.selection()
+        if not selection:
+            return
+        item_id = selection[0]
+        name = self.tree.item(item_id, "text")
+        if name == "..":
+            self.filename_var.set("")
+        else:
+            self.filename_var.set(name.rstrip("/"))
+
+    def _on_double_click(self, event: tk.Event[tk.Treeview]) -> None:
+        item_id = self.tree.focus()
+        if not item_id:
+            return
+        name = self.tree.item(item_id, "text")
+        if name == "..":
+            self.working_dir = self.working_dir.parent
+            self._refresh_file_list()
+            return
+
+        path = self.working_dir / name.rstrip("/")
+        if path.is_dir():
+            self.working_dir = path
+            self._refresh_file_list()
+        else:
+            self.filename_var.set(name)
+            self._on_confirm()
+
+    def _on_mousewheel(self, event: tk.Event[tk.Treeview]) -> None:
+        if event.num == 4:  # X11 scroll up
+            delta = -1
+        elif event.num == 5:  # X11 scroll down
+            delta = 1
+        else:
+            delta = -1 * (event.delta // 120)
+        self.tree.yview_scroll(delta, "units")
+        return "break"
+
+    def _on_confirm(self) -> None:
+        filename = self.filename_var.get().strip()
+        if not filename:
+            messagebox.showerror("Error", "Please select or enter a file name.")
+            return
+
+        candidate = self.working_dir / filename
+        if candidate.is_dir():
+            self.working_dir = candidate
+            self.filename_var.set("")
+            self._refresh_file_list()
+            return
+
+        if self.mode == "open":
+            if not candidate.exists():
+                messagebox.showerror("Error", f"File does not exist:\n{candidate}")
+                return
+            if not self._matches_filetypes(candidate):
+                messagebox.showerror("Error", "Selected file type is not allowed.")
+                return
+        else:
+            if self.defaultextension and not candidate.suffix:
+                candidate = candidate.with_suffix(self.defaultextension)
+
+        self.result = candidate
+        self._close()
+
+    def _on_cancel(self) -> None:
+        self.result = None
+        self._close()
+
+    # --- Helpers -----------------------------------------------------------
+    def _close(self) -> None:
+        self.grab_release()
+        self.destroy()
+
+    def _matches_filetypes(self, path: Path) -> bool:
+        if not self.filetypes:
+            return True
+        for _label, pattern in self.filetypes:
+            if pattern in ("*", "*.*"):
+                return True
+            if fnmatch.fnmatch(path.name, pattern):
+                return True
+        return False
+
+    def _refresh_file_list(self) -> None:
+        self.cwd_label.configure(text=str(self.working_dir))
+        self.tree.delete(*self.tree.get_children())
+
+        if self.working_dir.parent != self.working_dir:
+            self.tree.insert("", "end", text="..")
+
+        entries = sorted(self.working_dir.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+        for entry in entries:
+            if not self.show_hidden_var.get() and entry.name.startswith("."):
+                continue
+            if entry.is_file() and not self._matches_filetypes(entry):
+                continue
+            label = f"{entry.name}/" if entry.is_dir() else entry.name
+            self.tree.insert("", "end", text=label)
+
+
+def ask_workdir_file(
+    parent: tk.Tk,
+    title: str,
+    mode: str,
+    filetypes: list[tuple[str, str]] | None = None,
+    defaultextension: str | None = None,
+) -> str:
+    dialog = FileBrowserDialog(
+        parent=parent,
+        title=title,
+        mode=mode,
+        filetypes=filetypes,
+        defaultextension=defaultextension,
+    )
+    return str(dialog.result) if dialog.result is not None else ""
 
 
 def get_default_soundfont_path() -> Path:
@@ -437,8 +642,10 @@ class App:
 
     # --- UI actions --------------------------------------------------------
     def on_open(self) -> None:
-        path = filedialog.askopenfilename(
+        path = ask_workdir_file(
+            parent=self.root,
             title="Select ABC file",
+            mode="open",
             filetypes=[
                 ("ABC files", "*.abc"),
                 ("Text files", "*.txt"),
@@ -469,8 +676,10 @@ class App:
 
         default_ext = preset["ext"]
 
-        out_path_str = filedialog.asksaveasfilename(
+        out_path_str = ask_workdir_file(
+            parent=self.root,
             title="Save audio as",
+            mode="save",
             defaultextension=default_ext,
             filetypes=[
                 ("Audio files", f"*{default_ext}"),

@@ -52,8 +52,17 @@ jobs:
       - name: Show dist/
         run: ls -lh dist/
 
+      - name: Package build
+        run: |
+          mkdir -p dist/package/abc2piano
+          cp dist/abc2piano dist/package/abc2piano/
+          cp README.md dist/package/abc2piano/
+          cp songs/*.abc dist/package/abc2piano/
+          cd dist/package
+          zip -r ../abc2piano-linux.zip abc2piano
+
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: abc2piano-linux
-          path: dist/abc2piano
+          path: dist/abc2piano-linux.zip

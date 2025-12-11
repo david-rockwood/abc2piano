@@ -8,6 +8,8 @@ Simple desktop app that converts ABC notation into piano audio.
 
 ## Dependencies
 
+You must have the following in your PATH for abc2piano to work:
+
 - abc2midi
 - ffmpeg
 - fluidsynth

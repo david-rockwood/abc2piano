@@ -57,15 +57,24 @@ jobs:
       - name: Show dist/
         run: ls -lh dist/
 
+      - name: Package build
+        run: |
+          mkdir -p dist/package/abc2piano
+          cp dist/abc2piano dist/package/abc2piano/
+          cp README.md dist/package/abc2piano/
+          cp songs/*.abc dist/package/abc2piano/
+          cd dist/package
+          zip -r ../abc2piano-${{ github.ref_name }}-linux.zip abc2piano
+
       - name: Upload binary as artifact
         uses: actions/upload-artifact@v4
         with:
           name: abc2piano-linux
-          path: dist/abc2piano
+          path: dist/package/abc2piano
 
       - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/abc2piano
+          files: dist/abc2piano-${{ github.ref_name }}-linux.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

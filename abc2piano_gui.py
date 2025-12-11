@@ -367,9 +367,14 @@ def get_impulse_response_path(filename: str) -> Path:
 # Audio pipeline helpers
 # ---------------------------------------------------------------------------
 
-def abc_to_midi(abc_path: Path, midi_path: Path) -> None:
+def abc_to_midi(abc_path: Path, midi_path: Path) -> Path:
     """
     Convert ABC file to MIDI using the external `abc2midi` tool (from abcmidi).
+
+    Returns the path of the first generated MIDI file. abc2midi can emit
+    numbered files (foo1.mid, foo2.mid, …) even when an explicit ``-o`` target
+    is provided, so we scan for the produced file instead of assuming the
+    exact name.
 
     Requires `abc2midi` to be installed and on PATH.
     On Debian/Ubuntu: sudo apt-get install abcmidi
@@ -401,6 +406,24 @@ def abc_to_midi(abc_path: Path, midi_path: Path) -> None:
             f"Exit code: {e.returncode}\n"
             f"Output:\n{e.stdout}"
         )
+
+    # abc2midi may append tune numbers (e.g., temp1.mid) even when given an
+    # explicit output path. Pick the first generated MIDI in the target
+    # directory that matches the requested stem.
+    if midi_path.exists():
+        return midi_path
+
+    parent = midi_path.parent
+    stem = midi_path.stem
+    numbered_midis = sorted(parent.glob(f"{stem}*.mid"))
+    if numbered_midis:
+        return numbered_midis[0]
+
+    raise FileNotFoundError(
+        "abc2midi did not produce a MIDI file.\n\n"
+        f"Expected output at: {midi_path}\n"
+        "If your ABC contains multiple tunes, abc2midi may write numbered files."
+    )
 
 def midi_to_wav(midi_path: Path, wav_path: Path, soundfont_path: Path) -> None:
     """
@@ -569,7 +592,7 @@ def export_abc_to_audio(
         midi_path = tmpdir / "temp.mid"
         dry_wav = tmpdir / "dry.wav"
 
-        abc_to_midi(abc_path, midi_path)
+        midi_path = abc_to_midi(abc_path, midi_path)
         midi_to_wav(midi_path, dry_wav, soundfont_path)
         process_with_ffmpeg(dry_wav, out_path, reverb_preset_name, output_preset_name)
         

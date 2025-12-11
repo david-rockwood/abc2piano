@@ -70,7 +70,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: abc2piano-linux
-          path: dist/package/abc2piano
+          path: dist/abc2piano-${{ github.ref_name }}-linux.zip
 
       - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v2

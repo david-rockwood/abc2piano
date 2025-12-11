@@ -509,6 +509,16 @@ def process_with_ffmpeg(
     preset = OUTPUT_PRESETS[output_preset_name]
     codec = preset["codec"]
     bitrate = preset["bitrate"]
+    expected_ext = preset["ext"].lower()
+
+    # Enforce the expected extension so ffmpeg errors are clearer to the user
+    actual_ext = out_path.suffix.lower()
+    if actual_ext != expected_ext:
+        display_name = output_preset_name or "this format"
+        raise ValueError(
+            "Output filename has the wrong extension. "
+            f"Please use '{expected_ext}' when exporting as {display_name}."
+        )
 
     reverb_spec = REVERB_PRESETS.get(reverb_preset_name)
 

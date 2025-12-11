@@ -19,6 +19,7 @@ from typing import Dict, Any, Optional
 import subprocess
 import tkinter as tk
 from tkinter import ttk, messagebox
+from tkinter import font as tkfont
 
 import mido
 import ffmpeg
@@ -184,7 +185,17 @@ class FileBrowserDialog(tk.Toplevel):
         container.rowconfigure(2, weight=1)
         tree_frame.columnconfigure(0, weight=1)
 
-        self.tree = ttk.Treeview(tree_frame, show="tree", selectmode="browse")
+        style = ttk.Style(self)
+        tree_font = tkfont.nametofont(style.lookup("Treeview", "font") or "TkDefaultFont")
+        row_height = tree_font.metrics("linespace") + 6
+        style.configure("FileBrowser.Treeview", rowheight=row_height)
+
+        self.tree = ttk.Treeview(
+            tree_frame,
+            show="tree",
+            selectmode="browse",
+            style="FileBrowser.Treeview",
+        )
         vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=vsb.set)
         self.tree.grid(row=0, column=0, sticky="nsew")

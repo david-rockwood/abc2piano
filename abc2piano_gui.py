@@ -34,6 +34,8 @@ def open_with_default_app(path: Path) -> None:
 
 APP_NAME = "abc2piano"
 SF2_FILENAME = "YDP-GrandPiano-20160804.sf2"
+ICON_PNG_FILENAME = "abc2piano.png"
+ICON_ICO_FILENAME = "abc2piano.ico"
 
 ReverbSpec = Dict[str, Any]
 
@@ -110,6 +112,28 @@ def get_resource_dir() -> Path:
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         return Path(sys._MEIPASS) / "resources"
     return Path(__file__).resolve().parent / "resources"
+
+
+def set_window_icon(root: tk.Tk) -> None:
+    """Set the window/taskbar icon on all supported platforms."""
+    resource_dir = get_resource_dir()
+
+    png_path = resource_dir / ICON_PNG_FILENAME
+    try:
+        icon_png = tk.PhotoImage(file=str(png_path))
+    except tk.TclError:
+        icon_png = None
+    else:
+        root.iconphoto(True, icon_png)
+        # Prevent garbage collection of the image
+        root._abc2piano_icon = icon_png  # type: ignore[attr-defined]
+
+    ico_path = resource_dir / ICON_ICO_FILENAME
+    if os.name == "nt" and ico_path.exists():
+        try:
+            root.iconbitmap(default=str(ico_path))
+        except tk.TclError:
+            pass
 
 
 def get_default_soundfont_path() -> Path:
@@ -559,6 +583,7 @@ class App:
 
 def main() -> None:
     root = tk.Tk()
+    set_window_icon(root)
     app = App(root)
     root.mainloop()
 

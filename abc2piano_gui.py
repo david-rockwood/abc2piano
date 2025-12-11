@@ -13,7 +13,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional
 
 import subprocess
 import tkinter as tk
@@ -21,6 +21,16 @@ from tkinter import ttk, filedialog, messagebox
 
 import mido
 import ffmpeg
+
+
+def open_with_default_app(path: Path) -> None:
+    """Open a file with the platform's default application."""
+    if os.name == "nt":
+        os.startfile(str(path))  # type: ignore[attr-defined]
+        return
+
+    opener = "open" if sys.platform == "darwin" else "xdg-open"
+    subprocess.Popen([opener, str(path)])
 
 APP_NAME = "abc2piano"
 SF2_FILENAME = "YDP-GrandPiano-20160804.sf2"
@@ -339,8 +349,11 @@ class App:
 
         self.status_var = tk.StringVar(value="Ready.")
         self.export_button: ttk.Button | None = None
+        self.play_button: ttk.Button | None = None
+        self.temp_play_file: Path | None = None
 
         self._build_ui()
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
     # --- UI construction ---------------------------------------------------
 
@@ -378,9 +391,15 @@ class App:
         )
         out_combo.grid(row=2, column=1, sticky="we", pady=(10, 0))
 
-        # Export button
-        self.export_button = ttk.Button(frame, text="Export…", command=self.on_export)
-        self.export_button.grid(row=3, column=0, columnspan=3, pady=(15, 0))
+        # Play / Export buttons
+        button_frame = ttk.Frame(frame)
+        button_frame.grid(row=3, column=0, columnspan=3, pady=(15, 0), sticky="e")
+
+        self.play_button = ttk.Button(button_frame, text="Play", command=self.on_play)
+        self.play_button.grid(row=0, column=0, padx=(0, 5))
+
+        self.export_button = ttk.Button(button_frame, text="Export…", command=self.on_export)
+        self.export_button.grid(row=0, column=1)
 
         # Status bar
         status_label = ttk.Label(
@@ -467,9 +486,71 @@ class App:
     def _set_busy(self, busy: bool) -> None:
         if self.export_button is not None:
             self.export_button.configure(state="disabled" if busy else "normal")
+        if self.play_button is not None:
+            self.play_button.configure(state="disabled" if busy else "normal")
         # Optionally change cursor
         self.root.configure(cursor="watch" if busy else "")
         self.root.update_idletasks()
+
+    def _delete_temp_play_file(self) -> None:
+        if self.temp_play_file and self.temp_play_file.exists():
+            try:
+                self.temp_play_file.unlink()
+            except OSError:
+                pass
+        self.temp_play_file = None
+
+    def on_play(self) -> None:
+        abc_path_str = self.abc_path_var.get().strip()
+        if not abc_path_str:
+            messagebox.showerror("Error", "Please select an ABC file first.")
+            return
+
+        abc_path = Path(abc_path_str)
+        if not abc_path.exists():
+            messagebox.showerror("Error", f"ABC file does not exist:\n{abc_path}")
+            return
+
+        output_preset_name = self.output_preset_var.get()
+        preset = OUTPUT_PRESETS.get(output_preset_name)
+        if preset is None:
+            messagebox.showerror("Error", f"Unknown output preset: {output_preset_name}")
+            return
+
+        ext = preset["ext"]
+
+        self._delete_temp_play_file()
+        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+            temp_out_path = Path(tmp.name)
+
+        soundfont_path = get_default_soundfont_path()
+
+        self._set_busy(True)
+        self.status_var.set("Rendering preview…")
+        self.root.update_idletasks()
+
+        try:
+            export_abc_to_audio(
+                abc_path=abc_path,
+                out_path=temp_out_path,
+                reverb_preset_name=self.reverb_var.get(),
+                output_preset_name=output_preset_name,
+                soundfont_path=soundfont_path,
+            )
+            self.temp_play_file = temp_out_path
+        except Exception as e:
+            self._delete_temp_play_file()
+            messagebox.showerror("Error", f"Failed to render preview:\n\n{e}")
+            self.status_var.set("Error during preview.")
+        else:
+            self.status_var.set(f"Playing: {temp_out_path}")
+            open_with_default_app(temp_out_path)
+        finally:
+            self._set_busy(False)
+
+    def on_close(self) -> None:
+        self._delete_temp_play_file()
+        self.root.destroy()
 
 
 # ---------------------------------------------------------------------------

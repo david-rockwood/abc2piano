@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 """
 abc2piano - simple Tk GUI to convert ABC notation into piano audio.
-
-Pipeline:
-    ABC file -> MIDI (music21) -> dry WAV (pyfluidsynth + SF2) -> final
-    format with optional reverb (ffmpeg).
 """
 
 from __future__ import annotations
@@ -45,27 +41,15 @@ ReverbSpec = Dict[str, Any]
 REVERB_PRESETS: Dict[str, Optional[ReverbSpec]] = {
     "None": None,
 
-    "Dry studio": {
-        "type": "afir",
-        "impulse": "IRx125_01A_dry-studio.wav",
-    },
-    "Small room": {
-        "type": "afir",
-        "impulse": "IRx250_01A_small-room.wav",
-    },
-    "Concert hall": {
+    "Mansion": {
         "type": "afir",
         "impulse": "IRx500_01A_concert-hall.wav",
     },
-    "Wide hall": {
+    "Music class": {
         "type": "afir",
         "impulse": "IRx500_02A_wide-hall.wav",
     },
     "Grand hall": {
-        "type": "afir",
-        "impulse": "IRx1000_01A_grand-hall.wav",
-    },
-    "Cinematic hall": {
         "type": "afir",
         "impulse": "IRx1000_02A_cinematic-hall.wav",
     },
@@ -657,7 +641,7 @@ class App:
         self.root.title("abc2piano v0.0.4")
 
         self.abc_path_var = tk.StringVar()
-        self.reverb_var = tk.StringVar(value="Concert hall")
+        self.reverb_var = tk.StringVar(value="Grand hall")
         self.output_preset_var = tk.StringVar(value="WAV (44.1 kHz)")
 
         self.status_var = tk.StringVar(value="Ready.")

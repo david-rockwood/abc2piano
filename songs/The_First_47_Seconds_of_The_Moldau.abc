@@ -1,0 +1,102 @@
+X:1
+T:The Moldau (Vltava)
+C:Composed by Bedřich Smetana
+C:Arranged by David K Rockwood
+M:6/8
+L:1/16
+Q:1/4=124
+K:Em
+%
+V:1
+!f! | EFG FGA B2 z4 | EFG FGA B2 z4 | EFG FGA GAB ABc | Bcd cBA BAG AGF |
+V:2
+!mf! | E2z10 | E2z10 | E2z10 | E2z10 |
+V:3
+!mf! | z10[eb]2 | z10[eb]2 | Z2 |
+V:4
+!mp! | z10[eg]2 | z10[eg]2 | Z | z10[eb]2 |
+%
+Q:1/4=130
+V:1
+| EFG FGA GAB ABc | Bcd cBA BAG AGF | EFG FGA GAB ABc |
+V:2
+| Z | E2z10 | Z |
+V:3
+| [ge']2z10 | Z | [ge']2z10 |
+V:4
+| Z | z10[eb]2 | Z |
+%
+Q:1/4=136
+V:1
+| def efg abc' bc'd' | [e'C]DE DEF EFG FGA | Bcd cde fga gab |
+V:2
+| Z3 |
+V:3
+| G2z10 | [ge']2z10 | z6[db]2z4 |
+V:4
+| G,2z10 | C2z10 | z6G2z4 |
+%
+Q:1/4=142
+V:1 
+| [Ac']Bc BcD efg fga | [bG]AB ABc cef efg | [aF]GA GAB ^c^de fge |
+V:2
+| Z3 |
+V:3
+| [ec']2z10 | z6[eb]2z4 | [ca]2z4[^Ag]2z4] |
+V:4
+| A,2z10 | z6G2z4 | F2z4[E^c]2z4 |
+%
+V:1
+| ^def e^d^c B^c^d ^cB^A | Bcd cBA BAG AGF | EFE FEG [cE]^de deg |
+V:2
+| Z2 | edc dcB cBA BAG |
+V:3
+| [Bf]2z10 | z6[Af]2z4 | [Ge]2z10 |
+V:4
+| [^Db]2z10 | z6B2a4 | C2z10 |
+%
+V:1
+| [c'E]FE FEG [ce]^de ^deg | [bG]AG FGB [dg]ag fgb | [d'G]AG FGB [dg]ag fgb |
+V:2
+| edc dcB cBA BAG | dcB AGD {B} dcB AGD | [dB]cB AGD {B} dcB AGD |
+V:3
+| Z | z4g2[db]2z4 | z4g2[db]2z4 |
+V:4
+| Z | z4B2[Bg]2z4 | z4B2[db]2z4 |
+%
+V:1
+| [ca]dc Bcd [ea]ba ^gab | [cc']dc Bcd [ea]ba ^gac' | [Eb]AG FGB [eg]ag fgb |
+V:2
+| [Ec]BA EAB cdc BAE | [Ac]BA EAB cdc BAE | [Ge]cB AGF {E} ecB AGF |
+V:3
+| z6[ca]2z4 | Z | z6[ge']2z4 |
+V:4
+| z6[Ae]2z4 | Z | z4[eb]2z6 |
+%
+V:1
+| [Ge']AG FGB [eg]ag feg | [^db]ed ^cdf agf efa | [Gg]AB AGB [eg]fg ^deg |
+V:2
+| [Ee]cB AGF {e} ecb AGE | [B'F]GF EFA cbA GAc | BAG FEG BAG FEG |
+V:3
+| z4[eb]2[ge']2z4 | z4B2[^df]2b2z2 | z4G2[Be]2g2z2 |
+V:4
+Z | B,4B,8- | B,4B,8- |
+%
+V:1
+| [Af]BA GFA [cf]e^d ^cdf | [Ge]AG  FEG [^Ae]^d^c ^Bce | [F^d][Ge][Af] [Bg][ca][Bg] [ca][=db][ec'] [db][ca][db] |
+V:2
+| [^Dc]dc BcA [DF]EF EFA | [GB]cB ABG GFE ^DEG | B2z10 |
+V:3
+| z4F2[Ac]2f2z2 | z4G2[^A^c]2e2z2 | [B^dfb]2z10 |
+V:4
+| B,4B,8- | B,4B,8- | B,C,B, C,B,C, B,C,B, C,B,C, |
+%
+V:1
+| [ca][Bg][Af] [Bg][Af][Ge] [F^d][Ge][Af] [Ge][F=d][Ec] | [^DB][E^c][F^d] [Ge][Af][Bg] [ca][=db][ec'] [db][ca][db] | [ca][Bg][Af] [Bg][Af][Ge] [F^d][Ge][Af] [Ge][F=d][E=c] |
+V:2
+| [^DF][EG][FA] [GB][Ac][GB] [Ac][GB][Ac] [GB][FA][EG] | [^DF]2[DF] [EG][FA][GB] [Ac][B=d][ce] [Bd][Ac][Bd] | [ce][Bd][Ac] [Bd][Ac][GB] [FA][GB][Ac] [GB][FA][EG] |
+V:3
+| Z3 |
+V:4
+| B,C,B, C,B,C, B,C,B, C,B,C, | B,C,B, C,B,C, B,C,B, C,B,C, | B,C,B, C,B,C, B,C,B, C,B,C, |
+%

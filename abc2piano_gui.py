@@ -43,15 +43,15 @@ REVERB_PRESETS: Dict[str, Optional[ReverbSpec]] = {
 
     "Mansion": {
         "type": "afir",
-        "impulse": "IRx500_01A_concert-hall.wav",
+        "impulse": "IRx500_01A_mansion.wav",
     },
     "Music class": {
         "type": "afir",
-        "impulse": "IRx500_02A_wide-hall.wav",
+        "impulse": "IRx500_02A_music-class.wav",
     },
     "Grand hall": {
         "type": "afir",
-        "impulse": "IRx1000_02A_cinematic-hall.wav",
+        "impulse": "IRx1000_02A_grand-hall.wav",
     },
 }
 

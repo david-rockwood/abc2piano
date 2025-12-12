@@ -641,7 +641,7 @@ class App:
         self.root.title("abc2piano v0.0.4")
 
         self.abc_path_var = tk.StringVar()
-        self.reverb_var = tk.StringVar(value="Grand hall")
+        self.reverb_var = tk.StringVar(value="Mansion")
         self.output_preset_var = tk.StringVar(value="WAV (44.1 kHz)")
 
         self.status_var = tk.StringVar(value="Ready.")

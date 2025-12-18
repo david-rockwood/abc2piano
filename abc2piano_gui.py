@@ -638,7 +638,7 @@ def export_abc_to_audio(
 class App:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
-        self.root.title("abc2piano v0.0.4")
+        self.root.title("abc2piano 0.0.5")
 
         self.abc_path_var = tk.StringVar()
         self.reverb_var = tk.StringVar(value="Mansion")

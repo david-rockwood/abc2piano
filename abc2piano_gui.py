@@ -643,6 +643,8 @@ class App:
         self.abc_path_var = tk.StringVar()
         self.reverb_var = tk.StringVar(value="Mansion")
         self.output_preset_var = tk.StringVar(value="WAV (44.1 kHz)")
+        self.soundfont_path_var = tk.StringVar(value=str(get_default_soundfont_path()))
+        self.soundfont_label_var = tk.StringVar()
 
         self.status_var = tk.StringVar(value="Ready.")
         self.export_button: ttk.Button | None = None
@@ -651,6 +653,8 @@ class App:
 
         self._build_ui()
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+
+        self._refresh_soundfont_label()
 
     # --- UI construction ---------------------------------------------------
 
@@ -688,9 +692,31 @@ class App:
         )
         out_combo.grid(row=2, column=1, sticky="we", pady=(10, 0))
 
+        # SoundFont row
+        ttk.Label(frame, text="SoundFont:").grid(row=3, column=0, sticky="w", pady=(10, 0))
+        soundfont_controls = ttk.Frame(frame)
+        soundfont_controls.grid(row=3, column=1, columnspan=2, sticky="we", pady=(10, 0))
+        soundfont_controls.columnconfigure(2, weight=1)
+
+        ttk.Button(
+            soundfont_controls,
+            text="Choose…",
+            command=self.on_choose_soundfont,
+        ).grid(row=0, column=0, padx=(0, 5))
+        ttk.Button(
+            soundfont_controls,
+            text="Reset",
+            command=self.on_reset_soundfont,
+        ).grid(row=0, column=1, padx=(0, 5))
+        ttk.Label(
+            soundfont_controls,
+            textvariable=self.soundfont_label_var,
+            anchor="w",
+        ).grid(row=0, column=2, sticky="we")
+
         # Play / Export buttons
         button_frame = ttk.Frame(frame)
-        button_frame.grid(row=3, column=0, columnspan=3, pady=(15, 0), sticky="e")
+        button_frame.grid(row=4, column=0, columnspan=3, pady=(15, 0), sticky="e")
 
         self.play_button = ttk.Button(button_frame, text="Play", command=self.on_play)
         self.play_button.grid(row=0, column=0, padx=(0, 5))
@@ -723,6 +749,48 @@ class App:
         if path:
             self.abc_path_var.set(path)
             self.status_var.set(f"Selected ABC file: {path}")
+
+    def on_choose_soundfont(self) -> None:
+        path = ask_workdir_file(
+            parent=self.root,
+            title="Select SoundFont",
+            mode="open",
+            filetypes=[
+                ("SoundFont files", "*.sf2"),
+                ("All files", "*.*"),
+            ],
+        )
+        if path:
+            self.soundfont_path_var.set(path)
+            self._refresh_soundfont_label()
+            self.status_var.set(f"Selected SoundFont: {path}")
+
+    def on_reset_soundfont(self) -> None:
+        default_path = get_default_soundfont_path()
+        self.soundfont_path_var.set(str(default_path))
+        self._refresh_soundfont_label()
+        self.status_var.set("SoundFont reset to default.")
+
+    def _refresh_soundfont_label(self) -> None:
+        path_str = self.soundfont_path_var.get().strip()
+        if not path_str:
+            display = "(none)"
+        else:
+            display = Path(path_str).name
+        self.soundfont_label_var.set(display)
+
+    def _resolve_soundfont_path(self) -> Path | None:
+        path_str = self.soundfont_path_var.get().strip()
+        if not path_str:
+            messagebox.showerror("Error", "Please select a SoundFont (.sf2) file.")
+            return None
+
+        soundfont_path = Path(path_str)
+        if not soundfont_path.exists():
+            messagebox.showerror("Error", f"SoundFont file does not exist:\n{soundfont_path}")
+            return None
+
+        return soundfont_path
 
     def on_export(self) -> None:
         abc_path_str = self.abc_path_var.get().strip()
@@ -759,8 +827,9 @@ class App:
 
         out_path = Path(out_path_str)
 
-        # Locate soundfont
-        soundfont_path = get_default_soundfont_path()
+        soundfont_path = self._resolve_soundfont_path()
+        if soundfont_path is None:
+            return
 
         # Run pipeline (synchronously, simple first version)
         self._set_busy(True)
@@ -820,11 +889,13 @@ class App:
 
         ext = preset["ext"]
 
+        soundfont_path = self._resolve_soundfont_path()
+        if soundfont_path is None:
+            return
+
         self._delete_temp_play_file()
         with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
             temp_out_path = Path(tmp.name)
-
-        soundfont_path = get_default_soundfont_path()
 
         self._set_busy(True)
         self.status_var.set("Rendering preview…")

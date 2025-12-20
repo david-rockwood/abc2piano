@@ -14,7 +14,14 @@ import fnmatch
 from typing import Dict, Any, Optional
 
 import subprocess
-import tkinter as tk
+
+try:
+    import tkinter as tk
+except ModuleNotFoundError:
+    raise RuntimeError(
+        "tkinter is not installed.\n"
+        "On Ubuntu/Mint: sudo apt install python3-tk"
+    ) from None
 from tkinter import ttk, messagebox
 from tkinter import font as tkfont
 

@@ -18,6 +18,6 @@ Currently there is only a Linux release, but there is no particular reason it sh
 
 You must have the following available in your `PATH` for abc2piano to work:
 
-* `abc2midi`
+* `abcmidi`
 * `ffmpeg`
 * `fluidsynth`
